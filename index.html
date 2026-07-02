@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI-Powered Chatbot for Medical Diagnosis</title>
-  <meta name="description" content="A symptom-assessment assistant that helps you understand your symptoms and their urgency before you see a physician." />
+  <meta name="description" content="A symptom-assessment assistant that helps you understand your symptoms and their urgency before you see a physician. A final year academic research project." />
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,18 +18,33 @@
           },
           colors: {
             ink: {
-              50:  '#eef3f6', 100: '#d7e3ea', 400: '#3c6b85', 500: '#23506b',
-              600: '#173f57', 700: '#102e41', 800: '#0b2333', 900: '#081a26',
+              50:  '#eef3f6',
+              100: '#d7e3ea',
+              400: '#3c6b85',
+              500: '#23506b',
+              600: '#173f57',
+              700: '#102e41',
+              800: '#0b2333',
+              900: '#081a26',
             },
             clinical: {
-              50:  '#effaf7', 100: '#d7f3ea', 400: '#2ab098', 500: '#0f9684',
-              600: '#0b7a6c', 700: '#0a6258',
+              50:  '#effaf7',
+              100: '#d7f3ea',
+              400: '#2ab098',
+              500: '#0f9684',
+              600: '#0b7a6c',
+              700: '#0a6258',
             },
             gold: {
-              100: '#f4e9d6', 400: '#c9a25f', 500: '#b0823f', 600: '#8f6a32',
+              100: '#f4e9d6',
+              400: '#c9a25f',
+              500: '#b0823f',
+              600: '#8f6a32',
             },
             triage: {
-              red:    '#dc4f4f', yellow: '#c98a2c', green:  '#1f9d6f',
+              red:    '#dc4f4f',
+              yellow: '#c98a2c',
+              green:  '#1f9d6f',
             }
           },
           keyframes: {
@@ -40,27 +55,35 @@
             'pulse-dot': {
               '0%, 100%': { transform: 'scale(0.6)', opacity: '0.4' },
               '50%':      { transform: 'scale(1)',   opacity: '1' },
-            }
+            },
+            'ticker': {
+              '0%':   { transform: 'translateX(0)' },
+              '100%': { transform: 'translateX(-50%)' },
+            },
           },
           animation: {
             'fade-up': 'fade-up 0.7s ease-out both',
             'dot-1':   'pulse-dot 1.2s ease-in-out infinite 0s',
             'dot-2':   'pulse-dot 1.2s ease-in-out infinite 0.2s',
             'dot-3':   'pulse-dot 1.2s ease-in-out infinite 0.4s',
+            'ticker':  'ticker 32s linear infinite',
           },
         }
       }
     }
   </script>
 
+  <!-- Google Fonts: Fraunces (academic serif display) + Inter (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
+    /* ── Scrollbar ─────────────────────────────────────────── */
     ::-webkit-scrollbar       { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #cfe0e6; border-radius: 99px; }
 
+    /* ── Glass surface ─────────────────────────────────────── */
     .glass {
       background: rgba(252,250,246,0.90);
       backdrop-filter: blur(18px);
@@ -68,59 +91,308 @@
       border: 1px solid rgba(15,46,65,0.06);
     }
 
+    /* ── Ticker tape ───────────────────────────────────────── */
+    .ticker-wrap   { overflow: hidden; }
+    .ticker-inner  { display: flex; width: max-content; animation: ticker 32s linear infinite; }
+    .ticker-inner:hover { animation-play-state: paused; }
+
+    /* ── Auto-grow textarea ────────────────────────────────── */
     textarea { field-sizing: content; min-height: 2.75rem; max-height: 8rem; }
 
+    /* ── Prose formatting inside chat bubbles ──────────────── */
     .prose-bubble strong { font-weight: 700; }
     .prose-bubble p      { margin-bottom: 0.4rem; }
     .prose-bubble p:last-child { margin-bottom: 0; }
-    .prose-bubble code   { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85em; color: #b91c1c; }
+
+    /* ── Seal / signature motif ───────────────────────────── */
+    .seal-ring {
+      border: 1.5px solid rgba(176,130,63,0.55);
+      box-shadow: inset 0 0 0 3px rgba(176,130,63,0.12);
+    }
   </style>
 </head>
 <body class="bg-[#faf8f3] text-ink-800 font-sans antialiased overflow-x-hidden selection:bg-clinical-100">
 
+<!-- ═══════════════════════════════════════════════════════════
+     LANDING PAGE
+═══════════════════════════════════════════════════════════════ -->
 <div id="view-landing">
+
+  <!-- Ambient backdrop -->
   <div aria-hidden="true" class="pointer-events-none fixed inset-0 overflow-hidden -z-10">
     <div class="absolute -top-32 -right-32 w-[56rem] h-[56rem] rounded-full bg-gradient-to-br from-clinical-50 to-ink-50 opacity-70 blur-3xl"></div>
     <div class="absolute bottom-0 -left-40 w-[44rem] h-[44rem] rounded-full bg-gradient-to-tr from-gold-100/40 to-clinical-50 opacity-60 blur-3xl"></div>
   </div>
 
+  <!-- ── Nav ── -->
   <nav class="fixed top-0 inset-x-0 z-50 glass">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <!-- Logo -->
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg bg-ink-700 flex items-center justify-center shadow-md shadow-ink-100">
           <svg class="w-4 h-4 text-clinical-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>
         </div>
         <span class="font-serif font-semibold text-lg tracking-tight text-ink-800">AI Medical <span class="text-clinical-600">Diagnosis</span></span>
       </div>
+
+      <!-- Desktop links -->
+      <div class="hidden md:flex items-center gap-8 text-sm font-semibold text-ink-500">
+        <a href="#features" class="hover:text-clinical-600 transition-colors">Platform</a>
+        <a href="#how"      class="hover:text-clinical-600 transition-colors">How It Works</a>
+        <a href="#about"    class="hover:text-clinical-600 transition-colors">About the Project</a>
+      </div>
+
       <button id="nav-cta" class="bg-ink-700 hover:bg-ink-800 active:bg-ink-800 text-white px-5 py-2 rounded-full text-sm font-bold transition-all shadow-md shadow-ink-100 hover:shadow-lg hover:-translate-y-px">
         Start Assessment
       </button>
     </div>
   </nav>
 
-  <section class="pt-40 pb-28 px-6 h-screen flex flex-col justify-center">
+  <!-- ── Hero ── -->
+  <section class="pt-40 pb-28 px-6">
     <div class="max-w-5xl mx-auto text-center space-y-7">
-      <h1 class="font-serif text-5xl lg:text-7xl font-semibold leading-[1.05] tracking-tight text-ink-800 animate-fade-up">
+      <!-- Badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-100/70 border border-gold-400/40 text-gold-600 text-xs font-bold tracking-widest uppercase animate-fade-up">
+        <span class="w-2 h-2 rounded-full bg-clinical-500 animate-ping inline-block"></span>
+        Academic Research Project · Sokoto State University
+      </div>
+
+      <!-- Headline -->
+      <h1 class="font-serif text-5xl lg:text-7xl font-semibold leading-[1.05] tracking-tight text-ink-800 animate-fade-up" style="animation-delay:80ms">
         Understand your symptoms,<br>
         <span class="italic text-clinical-600">before you walk in.</span>
       </h1>
+
       <p class="text-xl text-ink-500 font-light max-w-2xl mx-auto leading-relaxed animate-fade-up" style="animation-delay:160ms">
         Describe how you feel in your own words and receive a clear, structured assessment — how urgent it is, what it might be, and what to do next — before your appointment.
       </p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 animate-fade-up">
-        <button id="hero-cta" class="group bg-ink-700 hover:bg-ink-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-ink-100 hover:-translate-y-0.5">
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 animate-fade-up" style="animation-delay:240ms">
+        <button id="hero-cta" class="group bg-ink-700 hover:bg-ink-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-ink-100 hover:shadow-2xl hover:-translate-y-0.5 flex items-center gap-3">
           Start Free Assessment
+          <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+        </button>
+        <a href="#how" class="text-ink-500 font-semibold text-base hover:text-clinical-600 transition-colors flex items-center gap-2">
+          See how it works
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </a>
+      </div>
+
+      <!-- Trust strip -->
+      <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 pt-6 animate-fade-up" style="animation-delay:320ms">
+        <div class="flex items-center gap-2 text-ink-400 text-xs font-semibold uppercase tracking-wider">
+          <svg class="w-4 h-4 text-clinical-500" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Always Available
+        </div>
+        <div class="w-px h-4 bg-ink-100"></div>
+        <div class="flex items-center gap-2 text-ink-400 text-xs font-semibold uppercase tracking-wider">
+          <svg class="w-4 h-4 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Confidential by Design
+        </div>
+        <div class="w-px h-4 bg-ink-100"></div>
+        <div class="flex items-center gap-2 text-ink-400 text-xs font-semibold uppercase tracking-wider">
+          <svg class="w-4 h-4 text-gold-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.25C17.25 21.15 21 16.25 21 11V5l-9-4z"/></svg>
+          Built for Local Health Context
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Ticker tape ── -->
+  <div class="ticker-wrap border-y border-ink-100 bg-white py-4">
+    <div class="ticker-inner">
+      <!-- Duplicated for seamless loop -->
+      <template id="ticker-items">
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Symptom Analysis</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Urgency Guidance</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Condition Matching</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Always Available</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Confidential &amp; Secure</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+        <span class="mx-10 text-xs font-bold text-ink-400 uppercase tracking-widest whitespace-nowrap">Academic Research Project</span>
+        <span class="mx-3 text-gold-400 text-lg">✦</span>
+      </template>
+      <!-- JS fills the ticker with 2× copies for the seamless loop -->
+    </div>
+  </div>
+
+  <!-- ── Features ── -->
+  <section id="features" class="py-28 px-6 bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-20">
+        <p class="text-xs font-black text-clinical-600 tracking-widest uppercase mb-3">Platform</p>
+        <h2 class="font-serif text-4xl lg:text-5xl font-semibold text-ink-800 tracking-tight">Built for clinical seriousness.</h2>
+        <p class="mt-4 text-lg text-ink-500 font-light max-w-xl mx-auto">Every design decision favours clarity, safety, and dependability.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Card 1 -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-clinical-50 border border-clinical-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-clinical-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Structured Triage</h3>
+          <p class="text-ink-500 leading-relaxed">Every response includes a clear urgency level — Emergency, See a Doctor, or Home Care — never ambiguous.</p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Safety-First Guardrails</h3>
+          <p class="text-ink-500 leading-relaxed">Emergency situations are flagged immediately. No prescriptions, no dosages — responsible by design.</p>
+        </div>
+
+        <!-- Card 3: dual engine -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-gold-100 border border-gold-400/40 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Always-On Reliability</h3>
+          <p class="text-ink-500 leading-relaxed">If the main assessment engine is ever busy, the system automatically continues with its own built-in medical knowledge base — you are never left waiting.</p>
+        </div>
+
+        <!-- Card 4: case memory -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Smart Case Memory</h3>
+          <p class="text-ink-500 leading-relaxed">The system recognises cases it has already assessed and responds instantly, keeping the service quick and consistent.</p>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Context-Aware Follow-up</h3>
+          <p class="text-ink-500 leading-relaxed">The assistant remembers your conversation and asks targeted follow-up questions to refine its assessment.</p>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="group p-8 rounded-3xl border border-ink-100 hover:border-clinical-200 hover:shadow-lg hover:shadow-clinical-50 transition-all bg-[#faf8f3] hover:bg-white">
+          <div class="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-ink-800 mb-2">Confidential by Design</h3>
+          <p class="text-ink-500 leading-relaxed">Conversations are used only to generate and recall assessments. No personally identifying information is required to use the service.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ── -->
+  <section id="how" class="py-28 px-6 bg-[#faf8f3]">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-20">
+        <p class="text-xs font-black text-clinical-600 tracking-widest uppercase mb-3">How It Works</p>
+        <h2 class="font-serif text-4xl lg:text-5xl font-semibold text-ink-800 tracking-tight">Three steps. Under a minute.</h2>
+      </div>
+
+      <ol class="space-y-6">
+        <li class="flex items-start gap-6 p-8 bg-white rounded-3xl border border-ink-100 shadow-sm">
+          <span class="flex-shrink-0 w-12 h-12 rounded-2xl bg-ink-700 text-white font-serif font-semibold text-lg flex items-center justify-center shadow-md shadow-ink-100">1</span>
+          <div>
+            <h3 class="text-lg font-bold text-ink-800 mb-1">Describe your symptoms</h3>
+            <p class="text-ink-500">Type what you're feeling — onset, location, severity, and any relevant history. The more detail, the sharper the assessment.</p>
+          </div>
+        </li>
+        <li class="flex items-start gap-6 p-8 bg-white rounded-3xl border border-ink-100 shadow-sm">
+          <span class="flex-shrink-0 w-12 h-12 rounded-2xl bg-ink-700 text-white font-serif font-semibold text-lg flex items-center justify-center shadow-md shadow-ink-100">2</span>
+          <div>
+            <h3 class="text-lg font-bold text-ink-800 mb-1">The assistant asks follow-up questions</h3>
+            <p class="text-ink-500">If anything is unclear, you'll be asked targeted follow-up questions before an assessment is formed — just like a triage nurse would.</p>
+          </div>
+        </li>
+        <li class="flex items-start gap-6 p-8 bg-white rounded-3xl border border-ink-100 shadow-sm">
+          <span class="flex-shrink-0 w-12 h-12 rounded-2xl bg-ink-700 text-white font-serif font-semibold text-lg flex items-center justify-center shadow-md shadow-ink-100">3</span>
+          <div>
+            <h3 class="text-lg font-bold text-ink-800 mb-1">Receive a structured report</h3>
+            <p class="text-ink-500">You'll get an urgency level, the most likely conditions explained in plain language, and clear guidance on what to do next.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="mt-10 text-center">
+        <button id="how-cta" class="bg-ink-700 hover:bg-ink-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-ink-100 hover:-translate-y-0.5">
+          Open Diagnostic Console
         </button>
       </div>
     </div>
   </section>
+
+  <!-- ── About the project ── -->
+  <section id="about" class="py-28 px-6 bg-white">
+    <div class="max-w-4xl mx-auto">
+      <div class="grid md:grid-cols-[auto,1fr] gap-10 items-start">
+        <div class="w-20 h-20 rounded-full seal-ring flex items-center justify-center flex-shrink-0 mx-auto md:mx-0">
+          <svg class="w-9 h-9 text-gold-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42A12.07 12.07 0 0121 14.6L12 19.5 3 14.6a12.07 12.07 0 012.84-4.02L12 14z"/></svg>
+        </div>
+        <div class="text-center md:text-left">
+          <p class="text-xs font-black text-clinical-600 tracking-widest uppercase mb-3">About the Project</p>
+          <h2 class="font-serif text-3xl lg:text-4xl font-semibold text-ink-800 tracking-tight mb-5">An academic exploration in accessible health guidance.</h2>
+          <p class="text-ink-500 leading-relaxed mb-4">
+            This system was developed as a final year research project to explore how a layered, fault-tolerant
+            design can keep a health-information assistant dependable — combining a modern reasoning engine with
+            a transparent, rule-based knowledge base and a memory of previously assessed cases.
+          </p>
+          <p class="text-ink-500 leading-relaxed mb-6">
+            It is intended purely for education and preliminary guidance. It does not replace consultation,
+            examination, or treatment by a qualified physician.
+          </p>
+          <p class="font-serif text-lg text-ink-700">
+            Developed by <span class="font-semibold">Umar Sadi Dan Malam</span>
+          </p>
+          <p class="text-sm text-ink-400 uppercase tracking-widest font-semibold mt-1">
+            Final Year Project &middot; Sokoto State University (SLU)
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer id="footer" class="bg-ink-800 py-16 px-6">
+    <div class="max-w-7xl mx-auto text-center">
+      <div class="flex items-center justify-center gap-2.5 mb-6">
+        <div class="w-8 h-8 rounded-lg bg-clinical-600 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>
+        </div>
+        <span class="font-serif font-semibold text-xl text-white tracking-tight">AI Medical <span class="text-gold-400">Diagnosis</span></span>
+      </div>
+      <div class="flex justify-center gap-8 mb-8 text-sm font-medium text-ink-300">
+        <a href="#features" class="hover:text-white transition-colors">Platform</a>
+        <a href="#how" class="hover:text-white transition-colors">How It Works</a>
+        <a href="#about" class="hover:text-white transition-colors">About the Project</a>
+      </div>
+      <p class="text-xs text-ink-400 max-w-xl mx-auto leading-relaxed">
+        &copy; 2026 AI-Powered Chatbot for Medical Diagnosis. A final year project by Umar Sadi Dan Malam,
+        Sokoto State University (SLU). All rights reserved.<br><br>
+        This tool provides preliminary, educational health information only. It is not a substitute for
+        professional medical advice, diagnosis, or treatment. Always consult a qualified physician for any
+        health concern. To improve speed and reliability, anonymised case descriptions and their assessments
+        may be securely stored and reused for matching future cases.
+      </p>
+    </div>
+  </footer>
+
 </div><!-- /view-landing -->
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     CHAT CONSOLE  (hidden by default)
+═══════════════════════════════════════════════════════════════ -->
 <div id="view-chat" class="hidden fixed inset-0 flex flex-col bg-[#faf8f3]" aria-live="polite">
 
-  <header class="glass flex-shrink-0 z-20 shadow-sm flex flex-col">
-    <!-- Main Top Bar -->
-    <div class="max-w-4xl mx-auto px-4 h-16 flex w-full items-center justify-between">
+  <!-- Console Header -->
+  <header class="glass flex-shrink-0 z-20 shadow-sm">
+    <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <button id="btn-back" aria-label="Back to home"
           class="w-9 h-9 rounded-xl bg-ink-50 hover:bg-ink-100 border border-ink-100 flex items-center justify-center text-ink-600 transition-colors">
@@ -134,58 +406,74 @@
         </div>
       </div>
 
+      <!-- Status pill -->
       <div class="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5">
         <span class="w-2 h-2 rounded-full bg-triage-green animate-pulse"></span>
-        Active
+        Secure &middot; Active
       </div>
-    </div>
-    
-    <!-- Diagnostic Mode Tabs -->
-    <div class="w-full bg-white/60 border-t border-ink-100 flex justify-center gap-6 text-[11px] font-bold uppercase tracking-widest">
-      <button id="tab-auto" class="border-b-2 border-clinical-600 text-clinical-700 py-3 transition-colors px-2 hover:text-clinical-700">Auto (Fallback)</button>
-      <button id="tab-gemini" class="border-b-2 border-transparent text-ink-400 hover:text-ink-700 py-3 transition-colors px-2">Force Gemini AI</button>
-      <button id="tab-builtin" class="border-b-2 border-transparent text-ink-400 hover:text-ink-700 py-3 transition-colors px-2">Force Built-in</button>
     </div>
   </header>
 
+  <!-- Message list -->
   <main id="chat-messages" class="flex-1 overflow-y-auto px-4 py-6">
     <div class="max-w-3xl mx-auto space-y-5" id="messages-inner">
-      <!-- Bubbles go here -->
+      <!-- System greeting injected by JS -->
     </div>
   </main>
 
+  <!-- Input bar -->
   <footer class="flex-shrink-0 bg-white/90 backdrop-blur-xl border-t border-ink-100 z-20 shadow-[0_-4px_24px_rgba(15,46,65,0.05)]">
     <div class="max-w-3xl mx-auto px-4 py-3">
       <div class="flex items-end gap-3">
         <div class="flex-1 flex items-end bg-[#faf8f3] border border-ink-100 rounded-2xl shadow-inner focus-within:border-clinical-400 focus-within:ring-4 focus-within:ring-clinical-400/15 transition-all overflow-hidden">
-          <textarea id="chat-input" rows="1" placeholder="Describe your symptoms…" class="flex-1 bg-transparent resize-none py-3 pl-4 pr-3 text-ink-700 text-sm outline-none placeholder:text-ink-300"></textarea>
+          <textarea
+            id="chat-input"
+            rows="1"
+            placeholder="Describe your symptoms…"
+            class="flex-1 bg-transparent resize-none py-3 pl-4 pr-3 text-ink-700 text-sm outline-none placeholder:text-ink-300"
+          ></textarea>
         </div>
-        <button id="btn-send" class="flex-shrink-0 bg-ink-700 hover:bg-ink-800 disabled:bg-ink-100 disabled:text-ink-300 disabled:cursor-not-allowed text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg">
+        <button id="btn-send"
+          class="flex-shrink-0 bg-ink-700 hover:bg-ink-800 disabled:bg-ink-100 disabled:text-ink-300 disabled:cursor-not-allowed text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
         </button>
       </div>
+      <p class="text-center text-[10px] font-semibold text-ink-400 uppercase tracking-widest mt-2">
+        <svg class="w-3 h-3 inline -mt-px mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        Educational tool only &middot; Not a substitute for professional medical advice
+      </p>
     </div>
   </footer>
 
-</div>
+</div><!-- /view-chat -->
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════ -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 (function () {
   'use strict';
 
+  /* ── Ticker tape fill ───────────────────────────────────────── */
+  const ticker   = document.querySelector('.ticker-inner');
+  const tplItems = document.getElementById('ticker-items');
+  if (ticker && tplItems) {
+    const html = tplItems.innerHTML;
+    ticker.innerHTML = html + html; // two copies for seamless loop
+  }
+
+  /* ── View routing ───────────────────────────────────────────── */
   const $landing = document.getElementById('view-landing');
   const $chat    = document.getElementById('view-chat');
   const $subtitle = document.getElementById('console-subtitle');
-  let activeEnginePref = 'auto'; // Tracks the selected tab
 
   function showChat() {
     $landing.classList.add('hidden');
     $chat.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
-    if(history.length === 0) {
-      appendSystemMessage('Welcome. Please describe your symptoms, including when they started, where they are located, how severe they feel on a scale of 1–10, and any relevant medical history.');
-    }
+    appendSystemMessage('Welcome. Please describe your symptoms, including when they started, where they are located, how severe they feel on a scale of 1–10, and any relevant medical history.');
     input.focus();
   }
 
@@ -193,46 +481,31 @@ document.addEventListener('DOMContentLoaded', function () {
     $chat.classList.add('hidden');
     $landing.classList.remove('hidden');
     document.body.classList.remove('overflow-hidden');
+    clearMessages();
+    history = [];
+    systemShown = false;
+    $subtitle.textContent = 'Dual-Engine Diagnostic System';
   }
 
-  ['nav-cta','hero-cta'].forEach(id => {
+  ['nav-cta','hero-cta','how-cta'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', showChat);
   });
   document.getElementById('btn-back')?.addEventListener('click', showLanding);
 
-  /* ── Tab Switching Logic ────────────────────────────────────── */
-  const tabs = {
-    'auto': document.getElementById('tab-auto'),
-    'gemini': document.getElementById('tab-gemini'),
-    'builtin': document.getElementById('tab-builtin')
-  };
-
-  Object.keys(tabs).forEach(key => {
-    tabs[key].addEventListener('click', () => {
-      // Reset all tabs styling
-      Object.values(tabs).forEach(t => {
-        t.classList.remove('border-clinical-600', 'text-clinical-700');
-        t.classList.add('border-transparent', 'text-ink-400');
-      });
-      // Activate clicked tab
-      tabs[key].classList.remove('border-transparent', 'text-ink-400');
-      tabs[key].classList.add('border-clinical-600', 'text-clinical-700');
-      
-      activeEnginePref = key;
-      appendSystemMessage(`⚙️ Switched diagnostic mode to: **${key.toUpperCase()}**`);
-    });
-  });
-
   /* ── Chat state ─────────────────────────────────────────────── */
-  let history = [];
+  let history = [];          // [{role, content}]
   let loading = false;
 
   const inner  = document.getElementById('messages-inner');
   const input  = document.getElementById('chat-input');
   const sendBtn = document.getElementById('btn-send');
 
-  input.addEventListener('input', () => { sendBtn.disabled = !input.value.trim() || loading; });
+  /* ── Enable / disable send ──────────────────────────────────── */
+  input.addEventListener('input', () => {
+    sendBtn.disabled = !input.value.trim() || loading;
+  });
 
+  /* ── Enter to send (Shift+Enter = newline) ───────────────────── */
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -242,43 +515,55 @@ document.addEventListener('DOMContentLoaded', function () {
 
   sendBtn.addEventListener('click', sendMessage);
 
+  /* ── Clear messages ─────────────────────────────────────────── */
+  function clearMessages() {
+    inner.innerHTML = '';
+  }
+
+  /* ── Scroll to bottom ───────────────────────────────────────── */
   function scrollBottom() {
     const scroller = document.getElementById('chat-messages');
     scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
   }
 
+  /* ── Render markdown-lite (bold + newlines) ─────────────────── */
   function renderContent(text) {
     return text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/`([^`]+)`/g, '<code>$1</code>') // render inline code blocks for errors
       .split('\n')
-      .map(line => line === '' ? '<br>' : `<p>${line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`)
+      .filter(l => l !== '')
+      .map(line => {
+        const bolded = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return `<p>${bolded}</p>`;
+      })
       .join('');
   }
 
+  /* ── Engine tag chip (Online / Built-in / Case Records) ─────── */
   function engineTagHtml(engineType) {
     if (!engineType) return '';
     const map = {
       ai:     { label: 'Online Assessment Engine',  cls: 'bg-clinical-50 text-clinical-700 border-clinical-200' },
       engine: { label: 'Built-in Diagnostic Engine', cls: 'bg-gold-100 text-gold-600 border-gold-400/40' },
       cache:  { label: 'Retrieved from Case Records',cls: 'bg-sky-50 text-sky-600 border-sky-200' },
-      error:  { label: 'API Connection Error', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
     };
     const tag = map[engineType];
     if (!tag) return '';
     return `<span class="inline-block mb-2 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${tag.cls}">${tag.label}</span>`;
   }
 
+  /* ── Append a bubble ────────────────────────────────────────── */
   function appendBubble(role, content, engineType) {
     const isUser   = role === 'user';
-    const isError  = role === 'error' || engineType === 'error';
+    const isError  = role === 'error';
     const isSystem = role === 'system';
 
     const wrap = document.createElement('div');
     wrap.className = `flex gap-3 animate-fade-up ${isUser ? 'flex-row-reverse' : ''}`;
 
+    /* Avatar */
     const avatarClasses = isUser
       ? 'bg-ink-700 text-white'
       : isError
@@ -291,12 +576,13 @@ document.addEventListener('DOMContentLoaded', function () {
         ? `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>`
         : `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>`;
 
+    /* Bubble colours */
     const bubbleClasses = isUser
       ? 'bg-ink-700 text-white border-ink-700 rounded-tr-sm'
       : isError
         ? 'bg-white text-rose-700 border-rose-200 rounded-tl-sm'
         : isSystem
-          ? 'bg-clinical-50 text-clinical-900 border-clinical-100 rounded-tl-sm font-medium text-xs'
+          ? 'bg-clinical-50 text-clinical-900 border-clinical-100 rounded-tl-sm font-medium'
           : 'bg-white text-ink-700 border-ink-100 rounded-tl-sm';
 
     wrap.innerHTML = `
@@ -312,17 +598,20 @@ document.addEventListener('DOMContentLoaded', function () {
     scrollBottom();
   }
 
+  /* ── Append system message (once) ──────────────────────────── */
+  let systemShown = false;
   function appendSystemMessage(text) {
+    if (systemShown) return;
+    systemShown = true;
     appendBubble('system', text);
-    // Don't push mode-switch messages to API history array
-    if (!text.includes('⚙️')) {
-        history.push({ role: 'system', content: text });
-    }
+    history.push({ role: 'system', content: text });
   }
 
+  /* ── Typing indicator ───────────────────────────────────────── */
   let typingEl = null;
   function showTyping() {
     typingEl = document.createElement('div');
+    typingEl.id = 'typing-indicator';
     typingEl.className = 'flex gap-3 animate-fade-up';
     typingEl.innerHTML = `
       <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-clinical-600 text-white flex items-center justify-center shadow-sm">
@@ -342,6 +631,7 @@ document.addEventListener('DOMContentLoaded', function () {
     typingEl = null;
   }
 
+  /* ── Send message ───────────────────────────────────────────── */
   async function sendMessage() {
     const text = input.value.trim();
     if (!text || loading) return;
@@ -360,22 +650,25 @@ document.addEventListener('DOMContentLoaded', function () {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          history: history, 
-          engine_preference: activeEnginePref // Sending the tab state!
-        }),
+        body: JSON.stringify({ history }),
       });
 
       const data = await res.json();
       hideTyping();
 
       if (!res.ok || data.error) {
-        appendBubble('error', data.error || `Server error ${res.status}.`);
+        appendBubble('error', data.error || `Server error ${res.status}. Please try again.`);
       } else {
-        if (data.engine !== 'error') {
-            history.push({ role: 'assistant', content: data.text });
-        }
+        history.push({ role: 'assistant', content: data.text });
         appendBubble('assistant', data.text, data.engine);
+
+        if (data.engine === 'ai') {
+          $subtitle.textContent = 'Online Assessment Engine Active';
+        } else if (data.engine === 'engine') {
+          $subtitle.textContent = 'Built-in Diagnostic Engine Active';
+        } else if (data.engine === 'cache') {
+          $subtitle.textContent = 'Result Retrieved from Case Records';
+        }
       }
     } catch (err) {
       hideTyping();
@@ -388,7 +681,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
 })();
-});
+}); // DOMContentLoaded
 </script>
+
 </body>
 </html>
