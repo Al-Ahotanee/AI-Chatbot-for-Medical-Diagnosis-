@@ -10,14 +10,12 @@ import engine
 
 load_dotenv()
 
-# ── Logging ──────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# ── App factory ──────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
@@ -45,11 +43,9 @@ BUSY_NOTICE = (
     "We are now switching to our built-in diagnostic engine to continue your assessment.\n\n"
 )
 
-
 @app.route("/")
 def index():
     return send_from_directory(".", "index.html")
-
 
 @app.route("/api/status")
 def status():
@@ -58,7 +54,6 @@ def status():
         "ai_daily_limit": MAX_AI_REQUESTS_PER_DAY,
         "database": db.get_status_snapshot(),
     })
-
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -83,12 +78,10 @@ def chat():
 
     case_hash = db.hash_case(new_user_message)
 
-    # ── FORCE: Built-in Engine ───────────────────────────────────────────
     if engine_preference == "builtin":
         result = engine.build_report(new_user_message, history_text=prior_user_text)
         return jsonify({"text": result["report_text"], "engine": "engine", "tier": result["tier"]})
 
-    # ── FORCE: Gemini AI ─────────────────────────────────────────────────
     if engine_preference == "gemini":
         ai_text, ai_error = _try_ai_engine(front_history, new_user_message)
         if ai_text:
@@ -101,9 +94,6 @@ def chat():
                 "tier": "unknown"
             })
 
-    # ── AUTO: Original Fallback Logic ────────────────────────────────────
-    
-    # 1. Check Cache first
     cached = db.get_cached_case(case_hash)
     if cached:
         response_text, urgency_tier, source = cached
@@ -114,7 +104,6 @@ def chat():
         )
         return jsonify({"text": note + response_text, "engine": "cache", "tier": urgency_tier})
 
-    # 2. Attempt AI
     ai_calls_today = db.get_today_ai_count()
     quota_exceeded = ai_calls_today >= MAX_AI_REQUESTS_PER_DAY
     ai_offline = not GEMINI_API_KEY
@@ -129,7 +118,6 @@ def chat():
         reason = "the daily usage limit has been reached" if quota_exceeded else "it has not been configured"
         logger.info("Skipping online AI engine because %s.", reason)
 
-    # 3. Fallback to Built-in
     result = engine.build_report(new_user_message, history_text=prior_user_text)
     report_text = result["report_text"]
     tier = result["tier"]
@@ -141,7 +129,6 @@ def chat():
 
     return jsonify({"text": final_text, "engine": "engine", "tier": tier})
 
-
 def _guess_tier(text: str) -> str:
     if "🔴" in text:
         return "red"
@@ -150,7 +137,6 @@ def _guess_tier(text: str) -> str:
     if "🟢" in text:
         return "green"
     return "unknown"
-
 
 def _try_ai_engine(front_history, new_user_message):
     try:
@@ -173,7 +159,6 @@ def _try_ai_engine(front_history, new_user_message):
             temperature=0.4,
         )
         
-        # Using 3.1-flash-lite to ensure reliable responses
         chat_kwargs = {
             "model": "gemini-3.1-flash-lite",
             "config": config
@@ -197,21 +182,17 @@ def _try_ai_engine(front_history, new_user_message):
         logger.error(f"Gemini API Error:\n{error_details}")
         return None, str(exc)
 
-
 @app.errorhandler(404)
 def not_found(_):
     return jsonify({"error": "Endpoint not found."}), 404
-
 
 @app.errorhandler(405)
 def method_not_allowed(_):
     return jsonify({"error": "Method not allowed."}), 405
 
-
 @app.errorhandler(500)
 def server_error(_):
     return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
