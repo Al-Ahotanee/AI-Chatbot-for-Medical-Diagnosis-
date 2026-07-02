@@ -1,6 +1,6 @@
-
 import os
 import logging
+import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -53,8 +53,6 @@ def index():
 
 @app.route("/api/status")
 def status():
-    """Small transparency endpoint the frontend uses to show which engines
-    are currently available — useful for both demos and the project report."""
     return jsonify({
         "ai_configured": bool(GEMINI_API_KEY),
         "ai_daily_limit": MAX_AI_REQUESTS_PER_DAY,
@@ -69,6 +67,8 @@ def chat():
         return jsonify({"error": "Request body must include a 'history' array."}), 400
 
     front_history: list = data["history"]
+    engine_preference = data.get("engine_preference", "auto")
+
     for msg in front_history:
         if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
             return jsonify({"error": "Each history item must have 'role' and 'content' fields."}), 400
@@ -81,8 +81,29 @@ def chat():
         m.get("content", "") for m in front_history[:-1] if m.get("role") == "user"
     )
 
-    # ── 1. Case memory: has this exact case been diagnosed before? ────────
     case_hash = db.hash_case(new_user_message)
+
+    # ── FORCE: Built-in Engine ───────────────────────────────────────────
+    if engine_preference == "builtin":
+        result = engine.build_report(new_user_message, history_text=prior_user_text)
+        return jsonify({"text": result["report_text"], "engine": "engine", "tier": result["tier"]})
+
+    # ── FORCE: Gemini AI ─────────────────────────────────────────────────
+    if engine_preference == "gemini":
+        ai_text, ai_error = _try_ai_engine(front_history, new_user_message)
+        if ai_text:
+            return jsonify({"text": ai_text, "engine": "ai", "tier": _guess_tier(ai_text)})
+        else:
+            # Send the exact crash message directly to the frontend chat bubble
+            return jsonify({
+                "text": f"**Gemini API Failed!**\n\n**Error:** `{ai_error}`\n\nPlease check your backend terminal for the full traceback.", 
+                "engine": "error", 
+                "tier": "unknown"
+            })
+
+    # ── AUTO: Original Fallback Logic ────────────────────────────────────
+    
+    # 1. Check Cache first
     cached = db.get_cached_case(case_hash)
     if cached:
         response_text, urgency_tier, source = cached
@@ -93,7 +114,7 @@ def chat():
         )
         return jsonify({"text": note + response_text, "engine": "cache", "tier": urgency_tier})
 
-    # ── 2. Decide whether the online AI engine should be attempted ────────
+    # 2. Attempt AI
     ai_calls_today = db.get_today_ai_count()
     quota_exceeded = ai_calls_today >= MAX_AI_REQUESTS_PER_DAY
     ai_offline = not GEMINI_API_KEY
@@ -108,7 +129,7 @@ def chat():
         reason = "the daily usage limit has been reached" if quota_exceeded else "it has not been configured"
         logger.info("Skipping online AI engine because %s.", reason)
 
-    # ── 3. Fallback: built-in rule-based diagnostic engine ────────────────
+    # 3. Fallback to Built-in
     result = engine.build_report(new_user_message, history_text=prior_user_text)
     report_text = result["report_text"]
     tier = result["tier"]
@@ -152,11 +173,13 @@ def _try_ai_engine(front_history, new_user_message):
             temperature=0.4,
         )
         
-        # Prevent passing an empty list to avoid SDK validation crashes
+        # Using 3.1-flash-lite to ensure reliable responses
         chat_kwargs = {
-            "model": "gemini-3.1-flash-lite", 
+            "model": "gemini-3.1-flash-lite",
             "config": config
         }
+        
+        # Prevent crash if history is empty
         if gemini_history:
             chat_kwargs["history"] = gemini_history
 
@@ -164,14 +187,14 @@ def _try_ai_engine(front_history, new_user_message):
         response = chat_session.send_message(new_user_message)
         
         if not response or not getattr(response, "text", None):
-            return None, "Empty response from AI engine."
+            return None, "Empty response from AI. Safety filters might have blocked it."
             
         logger.info("Online AI engine responded successfully.")
         return response.text, None
 
     except Exception as exc:
-        # Log the actual API error so it appears in your terminal
-        logger.error(f"Gemini API Error: {exc}") 
+        error_details = traceback.format_exc()
+        logger.error(f"Gemini API Error:\n{error_details}")
         return None, str(exc)
 
 
