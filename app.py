@@ -1,27 +1,3 @@
-"""
-app.py
-─────────────────────────────────────────────────────────────────────────────
-AI-Powered Chatbot for Medical Diagnosis
-Final Year Project — Umar Sadi Dan Malam, Sokoto State University (SLU)
-
-This Flask application serves the chat interface and powers it with a
-dual-engine architecture for reliability:
-
-    1. Online AI Engine (Google Gemini) — the primary reasoning engine.
-    2. Built-in Diagnostic Engine (engine.py) — a rule-based fallback that
-       takes over automatically whenever the online engine is busy, offline,
-       unconfigured, or has reached its daily usage ceiling.
-
-A PostgreSQL database (db.py — designed for the free Neon Postgres tier)
-gives the system "case memory": every diagnosis produced is fingerprinted
-and stored, so that a visitor presenting the same case again is served the
-saved result instantly instead of re-invoking the AI engine.
-
-All of this is designed to degrade gracefully: if the database is
-unreachable, or the AI key is missing, or the AI quota is exhausted, the
-chatbot keeps working and simply tells the visitor which engine answered.
-─────────────────────────────────────────────────────────────────────────────
-"""
 
 import os
 import logging
@@ -156,8 +132,6 @@ def _guess_tier(text: str) -> str:
 
 
 def _try_ai_engine(front_history, new_user_message):
-    """Attempt to call the online AI engine. Returns (text, None) on success
-    or (None, error_message) on any failure, so the caller can fall back."""
     try:
         from google import genai
         from google.genai import types
@@ -177,18 +151,27 @@ def _try_ai_engine(front_history, new_user_message):
             max_output_tokens=1024,
             temperature=0.4,
         )
-        chat_session = client.chats.create(
-            model="gemini-2.5-flash",
-            config=config,
-            history=gemini_history,
-        )
+        
+        # Prevent passing an empty list to avoid SDK validation crashes
+        chat_kwargs = {
+            "model": "gemini-3.1-flash-lite", 
+            "config": config
+        }
+        if gemini_history:
+            chat_kwargs["history"] = gemini_history
+
+        chat_session = client.chats.create(**chat_kwargs)
         response = chat_session.send_message(new_user_message)
+        
         if not response or not getattr(response, "text", None):
             return None, "Empty response from AI engine."
+            
         logger.info("Online AI engine responded successfully.")
         return response.text, None
 
     except Exception as exc:
+        # Log the actual API error so it appears in your terminal
+        logger.error(f"Gemini API Error: {exc}") 
         return None, str(exc)
 
 
