@@ -1,213 +1,118 @@
-"""
-app.py
-─────────────────────────────────────────────────────────────────────────────
-AI-Powered Chatbot for Medical Diagnosis
-Final Year Project — Umar Sadi Dan Malam, Sokoto State University (SLU)
-
-This Flask application serves the chat interface and powers it with a
-dual-engine architecture for reliability:
-
-    1. Online AI Engine (Google Gemini) — the primary reasoning engine.
-    2. Built-in Diagnostic Engine (engine.py) — a rule-based fallback that
-       takes over automatically whenever the online engine is busy, offline,
-       unconfigured, or has reached its daily usage ceiling.
-
-A PostgreSQL database (db.py — designed for the free Neon Postgres tier)
-gives the system "case memory": every diagnosis produced is fingerprinted
-and stored, so that a visitor presenting the same case again is served the
-saved result instantly instead of re-invoking the AI engine.
-
-All of this is designed to degrade gracefully: if the database is
-unreachable, or the AI key is missing, or the AI quota is exhausted, the
-chatbot keeps working and simply tells the visitor which engine answered.
-─────────────────────────────────────────────────────────────────────────────
-"""
-
 import os
 import logging
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from dotenv import load_dotenv
+from flask import Flask, request, jsonify, send_file
+from google import genai
 
 import db
 import engine
 
-load_dotenv()
-
-# ── Logging ──────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ── App factory ──────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder=".", static_url_path="")
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+app = Flask(__name__)
 
+# Fetch Gemini API Key
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-MAX_AI_REQUESTS_PER_DAY = int(os.environ.get("MAX_AI_REQUESTS_PER_DAY", "50"))
 
-SYSTEM_PROMPT = """You are the diagnostic assistant for the AI-Powered Chatbot for Medical Diagnosis, a system designed to help users understand their symptoms before they see a physician.
-
-Your responsibilities:
-1. Listen carefully to reported symptoms and ask targeted clarifying questions (onset, severity 1-10, location, duration, aggravating/relieving factors).
-2. Identify the most probable conditions and explain them clearly in plain language.
-3. Triage urgency into one of three explicit tiers:
-   - 🔴 EMERGENCY: Advise calling emergency services or going to an ER immediately.
-   - 🟡 SEE A DOCTOR: Recommend scheduling an appointment within 24-72 hours.
-   - 🟢 HOME CARE: Provide safe, general self-care guidance.
-4. Always remind the user you are an AI and cannot replace a licensed physician.
-5. Never name specific prescription drugs or dosages. You may reference general classes (e.g., "OTC antihistamines").
-6. Use empathetic, calm, precise language. Avoid jargon without explanation.
-7. If the user expresses distress or describes emergency symptoms (severe chest pain, stroke symptoms, difficulty breathing, suicidal ideation), lead with the emergency directive immediately.
-
-Format responses with clear structure using markdown-style bold for key terms when helpful. Keep responses concise but complete."""
-
-BUSY_NOTICE = (
-    "⚠️ **Notice:** Our online AI engine is currently busy or unavailable. "
-    "We are now switching to our built-in diagnostic engine to continue your assessment.\n\n"
-)
-
-
-@app.route("/")
+@app.route('/')
 def index():
-    return send_from_directory(".", "index.html")
+    """Serves the frontend."""
+    return send_file('index.html')
 
+@app.route('/api/chat/ai', methods=['POST'])
+def chat_ai():
+    """Primary route for the Gemini-powered AI diagnostic chat."""
+    if not GEMINI_API_KEY:
+        return jsonify({
+            "error": "Gemini API key is not configured on this server.", 
+            "can_fallback": True
+        }), 503
 
-@app.route("/api/status")
-def status():
-    """Small transparency endpoint the frontend uses to show which engines
-    are currently available — useful for both demos and the project report."""
-    return jsonify({
-        "ai_configured": bool(GEMINI_API_KEY),
-        "ai_daily_limit": MAX_AI_REQUESTS_PER_DAY,
-        "database": db.get_status_snapshot(),
-    })
+    data = request.json
+    history = data.get("history", [])
+    if not history:
+        return jsonify({"error": "No chat history provided.", "can_fallback": False}), 400
 
-
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    data = request.get_json(silent=True)
-    if not data or not data.get("history"):
-        return jsonify({"error": "Request body must include a 'history' array."}), 400
-
-    front_history: list = data["history"]
-    for msg in front_history:
-        if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
-            return jsonify({"error": "Each history item must have 'role' and 'content' fields."}), 400
-
-    new_user_message = front_history[-1].get("content", "").strip()
-    if not new_user_message:
-        return jsonify({"error": "Last message content cannot be empty."}), 400
-
-    prior_user_text = " ".join(
-        m.get("content", "") for m in front_history[:-1] if m.get("role") == "user"
-    )
-
-    # ── 1. Case memory: has this exact case been diagnosed before? ────────
-    case_hash = db.hash_case(new_user_message)
+    user_text = history[-1]["content"]
+    
+    # 1. Check Case Memory
+    case_hash = db.hash_case(user_text)
     cached = db.get_cached_case(case_hash)
     if cached:
-        response_text, urgency_tier, source = cached
-        logger.info("Served cached case (originally generated by '%s').", source)
-        note = (
-            "🗂️ *A matching case was found in our records, so this assessment is being "
-            "retrieved instantly instead of being regenerated.*\n\n"
-        )
-        return jsonify({"text": note + response_text, "engine": "cache", "tier": urgency_tier})
+        logger.info(f"Cache hit for case: {case_hash}")
+        return jsonify({"text": cached[0], "tier": cached[1], "engine": "cache"})
 
-    # ── 2. Decide whether the online AI engine should be attempted ────────
-    ai_calls_today = db.get_today_ai_count()
-    quota_exceeded = ai_calls_today >= MAX_AI_REQUESTS_PER_DAY
-    ai_offline = not GEMINI_API_KEY
-
-    if not ai_offline and not quota_exceeded:
-        ai_text, ai_error = _try_ai_engine(front_history, new_user_message)
-        if ai_text:
-            db.save_case(case_hash, new_user_message, ai_text, _guess_tier(ai_text), source="ai")
-            return jsonify({"text": ai_text, "engine": "ai", "tier": _guess_tier(ai_text)})
-        logger.warning("Online AI engine failed, falling back to built-in engine: %s", ai_error)
-    else:
-        reason = "the daily usage limit has been reached" if quota_exceeded else "it has not been configured"
-        logger.info("Skipping online AI engine because %s.", reason)
-
-    # ── 3. Fallback: built-in rule-based diagnostic engine ────────────────
-    result = engine.build_report(new_user_message, history_text=prior_user_text)
-    report_text = result["report_text"]
-    tier = result["tier"]
-
-    final_text = report_text if result["is_clarifying"] else (BUSY_NOTICE + report_text)
-
-    if not result["is_clarifying"]:
-        db.save_case(case_hash, new_user_message, final_text, tier, source="engine")
-
-    return jsonify({"text": final_text, "engine": "engine", "tier": tier})
-
-
-def _guess_tier(text: str) -> str:
-    if "🔴" in text:
-        return "red"
-    if "🟡" in text:
-        return "yellow"
-    if "🟢" in text:
-        return "green"
-    return "unknown"
-
-
-def _try_ai_engine(front_history, new_user_message):
-    """Attempt to call the online AI engine. Returns (text, None) on success
-    or (None, error_message) on any failure, so the caller can fall back."""
+    # 2. Call Gemini
     try:
-        from google import genai
-        from google.genai import types
-
-        gemini_history = []
-        for msg in front_history[:-1]:
-            if msg["role"] in ("system", "error"):
-                continue
-            role = "model" if msg["role"] == "assistant" else "user"
-            gemini_history.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])])
-            )
-
         client = genai.Client(api_key=GEMINI_API_KEY)
-        config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=1024,
-            temperature=0.4,
+        
+        # Construct system prompt and history
+        prompt = (
+            "You are a professional medical triage assistant. Analyze the symptoms provided by the user. "
+            "Give a clear, structured assessment including an urgency level (Emergency, See a Doctor, or Home Care), "
+            "possible conditions, and recommended guidance. Be concise and use Markdown formatting.\n\n"
         )
-        chat_session = client.chats.create(
-            model="gemini-2.5-flash",
-            config=config,
-            history=gemini_history,
+        for msg in history:
+            prompt += f"{msg['role'].capitalize()}: {msg['content']}\n"
+        prompt += "Assistant: "
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
         )
-        response = chat_session.send_message(new_user_message)
-        if not response or not getattr(response, "text", None):
-            return None, "Empty response from AI engine."
-        logger.info("Online AI engine responded successfully.")
-        return response.text, None
 
-    except Exception as exc:
-        return None, str(exc)
+        result_text = response.text
+        
+        # Save to Case Memory
+        db.save_case(case_hash, user_text, result_text, "unknown", "ai")
+        
+        return jsonify({"text": result_text, "engine": "ai"})
 
+    except Exception as e:
+        error_msg = str(e)
+        if hasattr(e, 'message'):
+            error_msg = e.message
+        logger.error(f"Gemini Engine Failed: {error_msg}")
+        return jsonify({
+            "error": f"The AI Engine encountered an error: {error_msg}", 
+            "can_fallback": True
+        }), 503
 
-@app.errorhandler(404)
-def not_found(_):
-    return jsonify({"error": "Endpoint not found."}), 404
+@app.route('/api/chat/builtin', methods=['POST'])
+def chat_builtin():
+    """Fallback route handling structured form data for the built-in rule-based engine."""
+    data = request.json
+    
+    symptoms = data.get("symptoms", [])
+    severity = data.get("severity", "")
+    duration = data.get("duration", "")
+    history_text = data.get("history", "")
 
+    # Construct a natural language string that engine.py's Regex/NLP can parse seamlessly
+    symptoms_str = ", ".join(symptoms) if symptoms else "none"
+    constructed_text = f"Symptoms: {symptoms_str}. "
+    
+    if severity:
+        constructed_text += f"Severity is {severity} out of 10. "
+    if duration:
+        constructed_text += f"It has been going on for {duration}. "
+    if history_text:
+        constructed_text += f"Medical history: {history_text}. "
 
-@app.errorhandler(405)
-def method_not_allowed(_):
-    return jsonify({"error": "Method not allowed."}), 405
+    # 1. Process via Built-in Engine
+    report = engine.build_report(constructed_text)
+    
+    # 2. Save to Case Memory
+    case_hash = db.hash_case(constructed_text)
+    db.save_case(case_hash, constructed_text, report["report_text"], report["tier"], "engine")
 
+    return jsonify({
+        "text": report["report_text"],
+        "tier": report["tier"],
+        "engine": "engine"
+    })
 
-@app.errorhandler(500)
-def server_error(_):
-    return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") != "production"
-    app.run(host="0.0.0.0", port=port, debug=debug)
