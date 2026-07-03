@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; }
@@ -61,11 +61,11 @@ function Header({ onReset, engine, setEngine }) {
         <div className="flex items-center bg-white/10 rounded-full p-1 text-xs">
           <button 
             onClick={() => setEngine('rule')}
-            className={`px-3 py-1 rounded-full transition ${engine === 'rule' ? 'bg-white text-teal-700 font-bold' : 'text-white/80'}`}
+            className={"px-3 py-1 rounded-full transition " + (engine === 'rule' ? 'bg-white text-teal-700 font-bold' : 'text-white/80')}
           >NLP</button>
           <button 
             onClick={() => setEngine('ai')}
-            className={`px-3 py-1 rounded-full transition ${engine === 'ai' ? 'bg-white text-teal-700 font-bold' : 'text-white/80'}`}
+            className={"px-3 py-1 rounded-full transition " + (engine === 'ai' ? 'bg-white text-teal-700 font-bold' : 'text-white/80')}
           >AI</button>
         </div>
         
@@ -98,53 +98,62 @@ function MessageBubble({ msg, engine }) {
   const diagnosis = msg.diagnosis;
   const isEmergency = diagnosis && diagnosis.severity === "emergency";
   
+  let bubbleClass = "bg-white text-slate-800 border border-slate-200 rounded-bl-sm";
+  if (isUser) {
+    bubbleClass = "bg-cyan-600 text-white rounded-br-sm";
+  } else if (isEmergency) {
+    bubbleClass = "bg-red-50 border border-red-200 text-red-900 rounded-bl-sm";
+  }
+
+  let engineBadge = null;
+  if (!isUser) {
+    if (engine === 'ai') {
+      engineBadge = <span className="text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded mb-1 inline-block">AI ENGINE</span>;
+    } else {
+      engineBadge = <span className="text-[9px] font-bold text-teal-500 bg-teal-50 px-1.5 py-0.5 rounded mb-1 inline-block">NLP ENGINE</span>;
+    }
+  }
+
+  let diagnosisCard = null;
+  if (diagnosis && !isEmergency) {
+    diagnosisCard = (
+      <div className="mt-3 bg-teal-50/60 border border-teal-200 rounded-lg p-3 text-slate-800 text-sm">
+        <div className="flex justify-between items-center mb-1">
+          <span className="font-semibold text-teal-800">{diagnosis.name}</span>
+          <span className="text-xs font-bold text-teal-700">{diagnosis.confidence_pct}% match</span>
+        </div>
+        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mb-2">
+          <div className="h-full bg-teal-500" style={{width: Math.min(diagnosis.confidence_pct, 100) + "%"}}></div>
+        </div>
+        <p className="text-xs text-slate-600 mt-1">{diagnosis.advice}</p>
+      </div>
+    );
+  }
+
+  let symptomTags = null;
+  if (msg.symptoms && msg.symptoms.length > 0) {
+    const tagClass = isUser ? "bg-cyan-700/40" : "bg-teal-50 text-teal-700 border border-teal-200";
+    symptomTags = (
+      <div className="mt-2 flex flex-wrap gap-1">
+        {msg.symptoms.map(function(s, i) {
+          return <span key={i} className={"text-[10px] px-2 py-0.5 rounded-full " + tagClass}>{s}</span>;
+        })}
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
-      <div className={`max-w-[85%] md:max-w-[70%] ${isUser ? "order-2" : ""}`}>
-        <div className={`flex items-end gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0
-            ${isUser ? "bg-cyan-600 text-white" : "bg-teal-100 text-teal-700"}`}>
+    <div className={"flex " + (isUser ? "justify-end" : "justify-start") + " mb-3"}>
+      <div className={"max-w-[85%] md:max-w-[70%] " + (isUser ? "order-2" : "")}>
+        <div className={"flex items-end gap-2 " + (isUser ? "flex-row-reverse" : "")}>
+          <div className={"w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 " + (isUser ? "bg-cyan-600 text-white" : "bg-teal-100 text-teal-700")}>
             {isUser ? "🧑" : "🤖"}
           </div>
-          <div className={`rounded-2xl px-4 py-2.5 shadow-sm
-            ${isUser
-              ? "bg-cyan-600 text-white rounded-br-sm"
-              : isEmergency
-                ? "bg-red-50 border border-red-200 text-red-900 rounded-bl-sm"
-                : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
-            
-            {!isUser && engine === 'ai' && (
-              <span className="text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded mb-1 inline-block">AI ENGINE</span>
-            )}
-            {!isUser && engine === 'rule' && (
-              <span className="text-[9px] font-bold text-teal-500 bg-teal-50 px-1.5 py-0.5 rounded mb-1 inline-block">NLP ENGINE</span>
-            )}
-
+          <div className={"rounded-2xl px-4 py-2.5 shadow-sm " + bubbleClass}>
+            {engineBadge}
             <div dangerouslySetInnerHTML={renderMarkdown(msg.content)} />
-
-            {diagnosis && !isEmergency && (
-              <div className="mt-3 bg-teal-50/60 border border-teal-200 rounded-lg p-3 text-slate-800 text-sm">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-teal-800">{diagnosis.name}</span>
-                  <span className="text-xs font-bold text-teal-700">{diagnosis.confidence_pct}% match</span>
-                </div>
-                <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mb-2">
-                  <div className="h-full bg-teal-500" style={{width: `${Math.min(diagnosis.confidence_pct, 100)}%`}}></div>
-                </div>
-                <p className="text-xs text-slate-600 mt-1">{diagnosis.advice}</p>
-              </div>
-            )}
-
-            {msg.symptoms && msg.symptoms.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {msg.symptoms.map((s, i) => (
-                  <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full
-                    ${isUser ? "bg-cyan-700/40" : "bg-teal-50 text-teal-700 border border-teal-200"}`}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
+            {diagnosisCard}
+            {symptomTags}
           </div>
         </div>
       </div>
@@ -153,15 +162,17 @@ function MessageBubble({ msg, engine }) {
 }
 
 function QuickReplies({ onPick, disabled }) {
-  const suggestions = ["I have a fever and headache", "I've been coughing with a sore throat", "My stomach hurts and I feel nauseous", "I'm having chest pain", "Burning when I urinate"];
+  var suggestions = ["I have a fever and headache", "I've been coughing with a sore throat", "My stomach hurts and I feel nauseous", "I'm having chest pain", "Burning when I urinate"];
   return (
     <div className="px-3 pb-2 flex gap-2 overflow-x-auto chat-scroll">
-      {suggestions.map((s, i) => (
-        <button key={i} disabled={disabled} onClick={() => onPick(s)}
-          className="text-xs whitespace-nowrap bg-white border border-slate-300 hover:border-teal-400 hover:bg-teal-50 text-slate-700 px-3 py-1.5 rounded-full transition disabled:opacity-50">
-          {s}
-        </button>
-      ))}
+      {suggestions.map(function(s, i) {
+        return (
+          <button key={i} disabled={disabled} onClick={function() { onPick(s); }}
+            className="text-xs whitespace-nowrap bg-white border border-slate-300 hover:border-teal-400 hover:bg-teal-50 text-slate-700 px-3 py-1.5 rounded-full transition disabled:opacity-50">
+            {s}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -173,51 +184,52 @@ function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showQuick, setShowQuick] = useState(true);
-  const [engine, setEngine] = useState("rule"); // 'rule' or 'ai'
+  const [engine, setEngine] = useState("rule");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    const welcome = {
+  useEffect(function() {
+    var engineLabel = engine === 'rule' ? 'Rule-Based NLP Engine' : 'AI Engine (Gemini)';
+    var welcome = {
       role: "bot",
-      content: "Hello! I'm **MediBot**. Describe how you're feeling and I'll help identify possible conditions.\n\n*Currently using: " + (engine === 'rule' ? 'Rule-Based NLP Engine' : 'AI Engine (Gemini)') + "*",
+      content: "Hello! I'm **MediBot**. Describe how you're feeling and I'll help identify possible conditions.\n\n*Currently using: " + engineLabel + "*",
       timestamp: new Date().toISOString(),
     };
     setMessages([welcome]);
 
-    fetch(`/api/history/${sessionId}`)
-      .then(r => r.json())
-      .then(data => {
+    fetch("/api/history/" + sessionId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
         if (data.messages && data.messages.length > 0) {
-          setMessages([welcome, ...data.messages]);
+          setMessages([welcome].concat(data.messages));
           setShowQuick(false);
         }
-      }).catch(() => {});
+      }).catch(function() {});
   }, [sessionId]);
 
-  useEffect(() => {
+  useEffect(function() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  const sendMessage = useCallback(async (text) => {
-    const trimmed = text.trim();
+  var sendMessage = useCallback(async function(text) {
+    var trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    const userMsg = { role: "user", content: trimmed, timestamp: new Date().toISOString() };
-    setMessages(prev => [...prev, userMsg]);
+    var userMsg = { role: "user", content: trimmed, timestamp: new Date().toISOString() };
+    setMessages(function(prev) { return prev.concat([userMsg]); });
     setInput("");
     setLoading(true);
     setShowQuick(false);
 
     try {
-      const res = await fetch("/api/chat", {
+      var res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, message: trimmed, engine: engine }),
       });
       if (!res.ok) throw new Error("Request failed");
-      const data = await res.json();
-      const botMsg = {
+      var data = await res.json();
+      var botMsg = {
         role: "bot",
         content: data.response.text,
         symptoms: data.response.symptoms,
@@ -225,29 +237,31 @@ function App() {
         severity: data.response.severity,
         timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, botMsg]);
+      setMessages(function(prev) { return prev.concat([botMsg]); });
     } catch (e) {
-      setMessages(prev => [...prev, {
+      setMessages(function(prev) { return prev.concat([{
         role: "bot", content: "⚠️ Sorry, I couldn't reach the server.", timestamp: new Date().toISOString()
-      }]);
+      }]); });
     } finally {
       setLoading(false);
-      inputRef.current && inputRef.current.focus();
+      if (inputRef.current) inputRef.current.focus();
     }
   }, [loading, sessionId, engine]);
 
-  const handleReset = useCallback(async () => {
+  var handleReset = useCallback(async function() {
     if (!confirm("Start a new conversation? This will clear the current chat history.")) return;
     try { await fetch("/api/reset", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ session_id: sessionId }) }); } catch (e) {}
-    const newSid = "web-" + crypto.randomUUID();
+    var newSid = "web-" + crypto.randomUUID();
     localStorage.setItem(SESSION_KEY, newSid);
     window.location.reload();
   }, [sessionId]);
 
-  const handleSubmit = (e) => {
+  function handleSubmit(e) {
     e.preventDefault();
     sendMessage(input);
-  };
+  }
+
+  var placeholderText = engine === 'ai' ? 'Describe symptoms (AI Engine)...' : 'Describe symptoms (NLP Engine)...';
 
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white shadow-xl">
@@ -255,9 +269,9 @@ function App() {
       <DisclaimerBanner />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll p-4 bg-slate-50">
-        {messages.map((m, i) => (
-          <MessageBubble key={i} msg={m} engine={engine} />
-        ))}
+        {messages.map(function(m, i) {
+          return <MessageBubble key={i} msg={m} engine={engine} />;
+        })}
         {loading && (
           <div className="flex items-end gap-2 mb-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm bg-teal-100 text-teal-700">🤖</div>
@@ -269,7 +283,7 @@ function App() {
       </div>
 
       {showQuick && messages.length <= 1 && (
-        <QuickReplies onPick={(s) => sendMessage(s)} disabled={loading} />
+        <QuickReplies onPick={function(s) { sendMessage(s); }} disabled={loading} />
       )}
 
       <form onSubmit={handleSubmit} className="border-t border-slate-200 p-3 bg-white flex gap-2">
@@ -277,8 +291,8 @@ function App() {
           ref={inputRef}
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={`Describe symptoms (${engine === 'ai' ? 'AI Engine' : 'NLP Engine'})...`}
+          onChange={function(e) { setInput(e.target.value); }}
+          placeholder={placeholderText}
           disabled={loading}
           className="flex-1 px-4 py-2.5 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
         />
