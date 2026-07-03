@@ -48,7 +48,6 @@ def chat_ai():
     started_with_user = False
     
     for msg in history:
-        # Map frontend 'assistant' role to Gemini's required 'model' role
         role = 'user' if msg['role'] == 'user' else 'model'
         
         # Gemini API requires the conversation history to start with a 'user' message
@@ -76,10 +75,21 @@ def chat_ai():
     }
 
     try:
-        response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
-        result = response.json()
+        # Added a timeout so the server doesn't hang indefinitely 
+        response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
         
-        # Catch and surface actual API errors (e.g., Invalid API Key, Quota Exceeded)
+        # Robust JSON parsing: Prevents the "Expecting value: line 1 column 1" crash
+        # when Google returns an HTML error page (e.g., 502 Bad Gateway)
+        try:
+            result = response.json()
+        except ValueError:
+            logger.error(f"Non-JSON response from API. Status: {response.status_code}, Body: {response.text[:200]}")
+            return jsonify({
+                "error": f"The AI server returned an invalid response (Status {response.status_code}).", 
+                "can_fallback": True
+            }), 503
+        
+        # Handle valid JSON but with HTTP error status (e.g., Quota Exceeded, 403 Forbidden)
         if response.status_code != 200:
             error_msg = result.get('error', {}).get('message', 'Unknown Gemini API Error')
             logger.error(f"Gemini REST API Error: {error_msg}")
@@ -88,6 +98,7 @@ def chat_ai():
                 "can_fallback": True
             }), 503
         
+        # Extract success payload
         if 'candidates' in result and len(result['candidates']) > 0:
             result_text = result['candidates'][0]['content']['parts'][0]['text']
             
@@ -96,15 +107,23 @@ def chat_ai():
             
             return jsonify({"text": result_text, "engine": "ai"})
         else:
+            logger.error(f"Unexpected JSON structure: {result}")
             return jsonify({
-                "error": "Received empty response from AI.", 
+                "error": "Received an empty or unrecognizable response from the AI.", 
                 "can_fallback": True
             }), 503
 
-    except Exception as e:
+    # Catch timeouts and network drops safely
+    except requests.exceptions.RequestException as e:
         logger.error(f"Request failed: {str(e)}")
         return jsonify({
-            "error": f"Connection error: {str(e)}", 
+            "error": "Network timeout or connection error while contacting the AI Engine.", 
+            "can_fallback": True
+        }), 503
+    except Exception as e:
+        logger.error(f"Unexpected Error: {str(e)}")
+        return jsonify({
+            "error": f"An unexpected error occurred: {str(e)}", 
             "can_fallback": True
         }), 503
 
