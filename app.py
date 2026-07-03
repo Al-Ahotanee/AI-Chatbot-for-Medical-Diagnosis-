@@ -217,10 +217,11 @@ def get_db():
         g.db = psycopg2.connect(DATABASE_URL)
     return g.db
 
-@app.teardown_apperror
-def close_db(error=None):
+@app.teardown_appcontext
+def close_db(exception=None):
     db = g.pop("db", None)
-    if db is not None: db.close()
+    if db is not None:
+        db.close()
 
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
