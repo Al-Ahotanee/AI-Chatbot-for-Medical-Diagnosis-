@@ -1,7 +1,7 @@
 import os
 import logging
+import requests
 from flask import Flask, request, jsonify, send_file
-from google import genai
 
 import db
 import engine
@@ -22,7 +22,7 @@ def index():
 
 @app.route('/api/chat/ai', methods=['POST'])
 def chat_ai():
-    """Primary route for the Gemini-powered AI diagnostic chat."""
+    """Primary route for the Gemini-powered AI diagnostic chat using direct REST API."""
     if not GEMINI_API_KEY:
         return jsonify({
             "error": "Gemini API key is not configured on this server.", 
@@ -43,50 +43,68 @@ def chat_ai():
         logger.info(f"Cache hit for case: {case_hash}")
         return jsonify({"text": cached[0], "tier": cached[1], "engine": "cache"})
 
-    # 2. Call Gemini
+    # 2. Call Gemini via Direct REST API
+    formatted_history = []
+    started_with_user = False
+    
+    for msg in history:
+        # Map frontend 'assistant' role to Gemini's required 'model' role
+        role = 'user' if msg['role'] == 'user' else 'model'
+        
+        # Gemini API requires the conversation history to start with a 'user' message
+        if not started_with_user and role == 'model':
+            continue
+        started_with_user = True
+        
+        formatted_history.append({
+            "role": role, 
+            "parts": [{"text": msg['content']}]
+        })
+        
+    system_instruction = (
+        "You are a professional medical triage assistant. Analyze the symptoms provided by the user. "
+        "Give a clear, structured assessment including an urgency level (Emergency, See a Doctor, or Home Care), "
+        "possible conditions, and recommended guidance. Be concise and use Markdown formatting."
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    
+    payload = {
+        "contents": formatted_history,
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "generationConfig": {"temperature": 0.2}
+    }
+
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
+        result = response.json()
         
-        # Construct system prompt and history
-        prompt = (
-            "You are a professional medical triage assistant. Analyze the symptoms provided by the user. "
-            "Give a clear, structured assessment including an urgency level (Emergency, See a Doctor, or Home Care), "
-            "possible conditions, and recommended guidance. Be concise and use Markdown formatting.\n\n"
-        )
-        for msg in history:
-            prompt += f"{msg['role'].capitalize()}: {msg['content']}\n"
-        prompt += "Assistant: "
-
-        # Changed to gemini-1.5-flash to fix the 403 Permission/Availability Error
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt
-        )
-
-        result_text = response.text
+        # Catch and surface actual API errors (e.g., Invalid API Key, Quota Exceeded)
+        if response.status_code != 200:
+            error_msg = result.get('error', {}).get('message', 'Unknown Gemini API Error')
+            logger.error(f"Gemini REST API Error: {error_msg}")
+            return jsonify({
+                "error": f"API Error: {error_msg}", 
+                "can_fallback": True
+            }), 503
         
-        # Save to Case Memory
-        db.save_case(case_hash, user_text, result_text, "unknown", "ai")
-        
-        return jsonify({"text": result_text, "engine": "ai"})
+        if 'candidates' in result and len(result['candidates']) > 0:
+            result_text = result['candidates'][0]['content']['parts'][0]['text']
+            
+            # Save to Case Memory
+            db.save_case(case_hash, user_text, result_text, "unknown", "ai")
+            
+            return jsonify({"text": result_text, "engine": "ai"})
+        else:
+            return jsonify({
+                "error": "Received empty response from AI.", 
+                "can_fallback": True
+            }), 503
 
     except Exception as e:
-        error_msg = str(e)
-        
-        # Clean up the raw API errors for better user experience
-        if "403" in error_msg:
-            friendly_error = "Access Denied (403). Your Gemini API key is either restricted in your region or lacks permissions for this model."
-        elif "404" in error_msg:
-            friendly_error = "Model not found (404). The AI model is currently unavailable."
-        elif hasattr(e, 'message'):
-            friendly_error = e.message
-        else:
-            friendly_error = error_msg
-            
-        logger.error(f"Gemini Engine Failed: {error_msg}")
-        
+        logger.error(f"Request failed: {str(e)}")
         return jsonify({
-            "error": friendly_error, 
+            "error": f"Connection error: {str(e)}", 
             "can_fallback": True
         }), 503
 
@@ -126,3 +144,5 @@ def chat_builtin():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
