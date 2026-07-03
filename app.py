@@ -57,8 +57,9 @@ def chat_ai():
             prompt += f"{msg['role'].capitalize()}: {msg['content']}\n"
         prompt += "Assistant: "
 
+        # Changed to gemini-1.5-flash to fix the 403 Permission/Availability Error
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
 
@@ -71,11 +72,21 @@ def chat_ai():
 
     except Exception as e:
         error_msg = str(e)
-        if hasattr(e, 'message'):
-            error_msg = e.message
+        
+        # Clean up the raw API errors for better user experience
+        if "403" in error_msg:
+            friendly_error = "Access Denied (403). Your Gemini API key is either restricted in your region or lacks permissions for this model."
+        elif "404" in error_msg:
+            friendly_error = "Model not found (404). The AI model is currently unavailable."
+        elif hasattr(e, 'message'):
+            friendly_error = e.message
+        else:
+            friendly_error = error_msg
+            
         logger.error(f"Gemini Engine Failed: {error_msg}")
+        
         return jsonify({
-            "error": f"The AI Engine encountered an error: {error_msg}", 
+            "error": friendly_error, 
             "can_fallback": True
         }), 503
 
@@ -115,4 +126,3 @@ def chat_builtin():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
