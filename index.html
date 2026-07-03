@@ -1,467 +1,297 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI-Powered Chatbot for Medical Diagnosis</title>
-  <meta name="description" content="A symptom-assessment assistant that helps you understand your symptoms and their urgency before you see a physician." />
-
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            serif: ['"Fraunces"', 'Georgia', 'serif'],
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            ink: {
-              50:  '#eef3f6', 100: '#d7e3ea', 400: '#3c6b85',
-              500: '#23506b', 600: '#173f57', 700: '#102e41',
-              800: '#0b2333', 900: '#081a26',
-            },
-            clinical: {
-              50:  '#effaf7', 100: '#d7f3ea', 400: '#2ab098',
-              500: '#0f9684', 600: '#0b7a6c', 700: '#0a6258',
-            },
-            gold: {
-              100: '#f4e9d6', 400: '#c9a25f', 500: '#b0823f', 600: '#8f6a32',
-            },
-          },
-          keyframes: {
-            'fade-up': {
-              '0%':   { opacity: '0', transform: 'translateY(18px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
-            },
-            'pulse-dot': {
-              '0%, 100%': { transform: 'scale(0.6)', opacity: '0.4' },
-              '50%':      { transform: 'scale(1)',   opacity: '1' },
-            },
-          },
-          animation: {
-            'fade-up': 'fade-up 0.5s ease-out both',
-            'dot-1':   'pulse-dot 1.2s ease-in-out infinite 0s',
-            'dot-2':   'pulse-dot 1.2s ease-in-out infinite 0.2s',
-            'dot-3':   'pulse-dot 1.2s ease-in-out infinite 0.4s',
-          },
-        }
-      }
-    }
-  </script>
-
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-  <style>
-    ::-webkit-scrollbar       { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cfe0e6; border-radius: 99px; }
-
-    .glass {
-      background: rgba(252,250,246,0.90);
-      backdrop-filter: blur(18px);
-      border-bottom: 1px solid rgba(15,46,65,0.06);
-    }
-    textarea { field-sizing: content; min-height: 2.75rem; max-height: 8rem; }
-    
-    .prose-bubble strong { font-weight: 700; color: inherit; }
-    .prose-bubble p      { margin-bottom: 0.6rem; }
-    .prose-bubble p:last-child { margin-bottom: 0; }
-    .prose-bubble ul     { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.6rem; }
-    .prose-bubble li     { margin-bottom: 0.25rem; }
-
-    /* Custom Checkbox */
-    .symptom-cb:checked + div {
-      background-color: #effaf7;
-      border-color: #2ab098;
-      color: #0b7a6c;
-      font-weight: 600;
-      box-shadow: 0 2px 4px rgba(42, 176, 152, 0.15);
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MediBot — Dual Engine Symptom Checker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; }
+  .chat-scroll::-webkit-scrollbar { width: 6px; }
+  .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  @keyframes blink { 0%,80%,100% { opacity:0.2 } 40% { opacity:1 } }
+  .dot { animation: blink 1.4s infinite both; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+</style>
 </head>
-<body class="bg-[#faf8f3] text-ink-800 font-sans antialiased selection:bg-clinical-100">
+<body>
+<div id="root"></div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     LANDING PAGE
-═══════════════════════════════════════════════════════════════ -->
-<div id="view-landing" class="min-h-screen flex flex-col justify-center items-center px-6 relative overflow-hidden">
-  <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden -z-10">
-    <div class="absolute -top-32 -right-32 w-[56rem] h-[56rem] rounded-full bg-gradient-to-br from-clinical-50 to-ink-50 opacity-70 blur-3xl"></div>
-    <div class="absolute bottom-0 -left-40 w-[44rem] h-[44rem] rounded-full bg-gradient-to-tr from-gold-100/40 to-clinical-50 opacity-60 blur-3xl"></div>
-  </div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
 
-  <div class="max-w-3xl mx-auto text-center space-y-8 mt-10">
-    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-clinical-50 border border-clinical-200 text-clinical-700 text-xs font-bold tracking-widest uppercase animate-fade-up">
-      <span class="w-2 h-2 rounded-full bg-clinical-500 animate-ping inline-block"></span>
-      Dual-Engine Architecture
-    </div>
+function renderMarkdown(text) {
+  const html = text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>');
+  return { __html: html };
+}
 
-    <h1 class="font-serif text-5xl md:text-6xl font-semibold leading-[1.05] tracking-tight text-ink-800 animate-fade-up" style="animation-delay:80ms">
-      Understand your symptoms,<br>
-      <span class="italic text-clinical-600">before you walk in.</span>
-    </h1>
+const SESSION_KEY = "medibot_session";
 
-    <p class="text-lg text-ink-500 font-light leading-relaxed animate-fade-up" style="animation-delay:160ms">
-      Choose the conversational AI for an interactive triage experience, or use our structured manual form powered by the built-in diagnostic engine.
-    </p>
+function getOrCreateSession() {
+  let sid = localStorage.getItem(SESSION_KEY);
+  if (!sid) {
+    sid = "web-" + crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, sid);
+  }
+  return sid;
+}
 
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 animate-fade-up" style="animation-delay:240ms">
-      <button onclick="showChat()" class="w-full sm:w-auto bg-ink-700 hover:bg-ink-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-3">
-        Start AI Assessment
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      </button>
+/* ------------------------- Components ------------------------- */
+function Header({ onReset, engine, setEngine }) {
+  return (
+    <header className="bg-gradient-to-r from-teal-600 to-cyan-700 text-white px-4 py-3 shadow-md flex items-center justify-between sticky top-0 z-10">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-2xl">🩺</div>
+        <div>
+          <h1 className="font-bold text-lg leading-tight">MediBot</h1>
+          <p className="text-xs text-teal-100 leading-tight">Dual Engine AI Symptom Checker</p>
+        </div>
+      </div>
       
-      <button onclick="showForm()" class="w-full sm:w-auto bg-white border border-ink-200 hover:border-clinical-400 text-ink-700 px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center justify-center gap-3">
-        Use Manual Form
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     AI CHAT CONSOLE
-═══════════════════════════════════════════════════════════════ -->
-<div id="view-chat" class="hidden fixed inset-0 flex flex-col bg-[#faf8f3]">
-  <header class="glass flex-shrink-0 z-20">
-    <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <button onclick="showLanding()" class="w-9 h-9 rounded-xl bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-600 transition-colors">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        </button>
-        <div>
-          <h2 class="font-serif font-semibold text-ink-800 text-base leading-tight">Gemini Assessment Engine</h2>
-          <p class="text-[10px] font-bold text-clinical-600 tracking-widest uppercase">Active</p>
+      <div className="flex items-center gap-4">
+        {/* Engine Toggle */}
+        <div className="flex items-center bg-white/10 rounded-full p-1 text-xs">
+          <button 
+            onClick={() => setEngine('rule')}
+            className={`px-3 py-1 rounded-full transition ${engine === 'rule' ? 'bg-white text-teal-700 font-bold' : 'text-white/80'}`}
+          >NLP</button>
+          <button 
+            onClick={() => setEngine('ai')}
+            className={`px-3 py-1 rounded-full transition ${engine === 'ai' ? 'bg-white text-teal-700 font-bold' : 'text-white/80'}`}
+          >AI</button>
         </div>
-      </div>
-      <button onclick="showForm()" class="text-xs font-bold text-ink-500 hover:text-clinical-600 uppercase tracking-widest transition-colors flex items-center gap-1.5">
-        Switch to Form <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <main id="chat-messages" class="flex-1 overflow-y-auto px-4 py-6">
-    <div class="max-w-3xl mx-auto space-y-5" id="messages-inner"></div>
-  </main>
-
-  <footer class="flex-shrink-0 bg-white/90 backdrop-blur-xl border-t border-ink-100 z-20 shadow-[0_-4px_24px_rgba(15,46,65,0.05)]">
-    <div class="max-w-3xl mx-auto px-4 py-3">
-      <div class="flex items-end gap-3">
-        <div class="flex-1 flex items-end bg-[#faf8f3] border border-ink-100 rounded-2xl shadow-inner focus-within:border-clinical-400 focus-within:ring-4 focus-within:ring-clinical-400/15 overflow-hidden transition-all">
-          <textarea id="chat-input" rows="1" placeholder="Describe your symptoms in your own words..." class="flex-1 bg-transparent resize-none py-3 pl-4 pr-3 text-ink-700 text-sm outline-none placeholder:text-ink-300"></textarea>
-        </div>
-        <button id="btn-send" onclick="sendMessage()" class="flex-shrink-0 bg-ink-700 hover:bg-ink-800 disabled:bg-ink-100 disabled:text-ink-300 text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-        </button>
-      </div>
-    </div>
-  </footer>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     BUILT-IN MANUAL FORM CONSOLE
-═══════════════════════════════════════════════════════════════ -->
-<div id="view-form" class="hidden fixed inset-0 flex flex-col bg-[#faf8f3] overflow-y-auto">
-  <header class="glass flex-shrink-0 z-20 sticky top-0">
-    <div class="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <button onclick="showLanding()" class="w-9 h-9 rounded-xl bg-ink-50 hover:bg-ink-100 flex items-center justify-center text-ink-600 transition-colors">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        </button>
-        <div>
-          <h2 class="font-serif font-semibold text-ink-800 text-base leading-tight">Built-in Diagnostic Engine</h2>
-          <p class="text-[10px] font-bold text-gold-600 tracking-widest uppercase">Structured Form Mode</p>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="flex-1 px-4 py-8">
-    <div class="max-w-2xl mx-auto w-full bg-white border border-ink-100 rounded-3xl p-6 md:p-10 shadow-sm relative">
-      <h3 class="text-2xl font-serif font-semibold text-ink-800 mb-2">Patient Intake Form</h3>
-      <p class="text-ink-500 text-sm mb-8">Select all applicable symptoms and provide details for an immediate assessment.</p>
-
-      <!-- 1. Symptoms -->
-      <div class="mb-8">
-        <label class="block text-sm font-bold text-ink-700 mb-3">1. Select your symptoms (Multiple allowed)</label>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="symptoms-grid">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-
-      <!-- 2. Severity -->
-      <div class="mb-8">
-        <label class="block text-sm font-bold text-ink-700 mb-3">2. Overall Severity (1-10)</label>
-        <div class="flex items-center gap-4 bg-[#faf8f3] p-4 rounded-2xl border border-ink-100">
-          <input type="range" id="form-severity" min="1" max="10" value="5" class="flex-1 h-2 bg-ink-200 rounded-lg appearance-none cursor-pointer accent-clinical-600" oninput="document.getElementById('sev-val').innerText = this.value">
-          <span class="font-bold text-2xl text-ink-800 w-12 text-right"><span id="sev-val">5</span><span class="text-ink-400 text-sm">/10</span></span>
-        </div>
-      </div>
-
-      <!-- 3. Duration -->
-      <div class="mb-8">
-        <label class="block text-sm font-bold text-ink-700 mb-3">3. How long have you felt this way?</label>
-        <input type="text" id="form-duration" placeholder="e.g., 3 days, 2 weeks, since yesterday" class="w-full bg-[#faf8f3] border border-ink-100 rounded-xl px-4 py-3 text-ink-700 text-sm outline-none focus:border-clinical-400 focus:ring-4 focus:ring-clinical-400/15 transition-all">
-      </div>
-
-      <!-- 4. Background -->
-      <div class="mb-10">
-        <label class="block text-sm font-bold text-ink-700 mb-3">4. Medical History &amp; Background Illness</label>
-        <textarea id="form-history" rows="3" placeholder="List any existing conditions, recent travel, or medications..." class="w-full bg-[#faf8f3] border border-ink-100 rounded-xl px-4 py-3 text-ink-700 text-sm outline-none focus:border-clinical-400 focus:ring-4 focus:ring-clinical-400/15 transition-all resize-none"></textarea>
-      </div>
-
-      <button id="btn-analyze" onclick="submitForm()" class="w-full bg-ink-700 hover:bg-ink-800 text-white font-bold text-lg py-4 rounded-2xl shadow-lg transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
-        <span>Generate Assessment Report</span>
-      </button>
-
-      <!-- Results Panel -->
-      <div id="form-results" class="hidden mt-8 pt-8 border-t border-ink-100">
-        <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-gold-50 border border-gold-200 text-gold-700 text-[10px] font-bold tracking-widest uppercase">
-          Generated by Built-in Engine
-        </div>
-        <div id="form-result-content" class="prose-bubble text-ink-700 leading-relaxed text-sm bg-[#faf8f3] p-5 rounded-2xl border border-ink-100"></div>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     JAVASCRIPT LOGIC
-═══════════════════════════════════════════════════════════════ -->
-<script>
-  /* ── State & Elements ─────────────────────────────────────── */
-  const views = {
-    landing: document.getElementById('view-landing'),
-    chat:    document.getElementById('view-chat'),
-    form:    document.getElementById('view-form')
-  };
-
-  let chatHistory = [];
-  let loading = false;
-
-  /* ── View Routing ─────────────────────────────────────────── */
-  function hideAll() {
-    Object.values(views).forEach(v => v.classList.add('hidden'));
-    document.body.classList.remove('overflow-hidden');
-  }
-
-  function showLanding() {
-    hideAll();
-    views.landing.classList.remove('hidden');
-  }
-
-  function showChat() {
-    hideAll();
-    views.chat.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-    if (chatHistory.length === 0) {
-      appendBubble('system', "Welcome to the AI Assessment Engine. Please describe how you're feeling in as much detail as possible.");
-    }
-  }
-
-  function showForm() {
-    hideAll();
-    views.form.classList.remove('hidden');
-  }
-
-  // Globally expose `switchToForm` so inline buttons in chat can trigger it
-  window.switchToForm = function() {
-    showForm();
-  };
-
-  /* ── Symptoms Grid Population ─────────────────────────────── */
-  const commonSymptoms = [
-    "Headache", "Fever", "Chills", "Body Ache", "Fatigue", "Cough", "Sore Throat",
-    "Runny Nose", "Shortness of Breath", "Chest Pain", "Nausea", "Vomiting", 
-    "Diarrhea", "Abdominal Pain", "Dizziness", "Rash", "Burning Urination", "Swollen Glands"
-  ];
-  
-  const grid = document.getElementById('symptoms-grid');
-  commonSymptoms.forEach(sym => {
-    const label = document.createElement('label');
-    label.className = "cursor-pointer";
-    label.innerHTML = `
-      <input type="checkbox" value="${sym}" class="symptom-cb hidden">
-      <div class="px-4 py-3 bg-white border border-ink-200 rounded-xl text-center text-sm text-ink-600 transition-all hover:border-clinical-400 select-none">
-        ${sym}
-      </div>
-    `;
-    grid.appendChild(label);
-  });
-
-  /* ── Render Markdown formatting ───────────────────────────── */
-  function renderContent(text) {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .split('\n')
-      .map(line => line.trim() === '' ? '' : `<p>${line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>`)
-      .join('');
-  }
-
-  /* ── Chat Logic ───────────────────────────────────────────── */
-  const chatInput = document.getElementById('chat-input');
-  const chatBtn = document.getElementById('btn-send');
-  const chatInner = document.getElementById('messages-inner');
-
-  chatInput.addEventListener('input', () => { chatBtn.disabled = !chatInput.value.trim() || loading; });
-  chatInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (!chatBtn.disabled) sendMessage();
-    }
-  });
-
-  function appendBubble(role, content, engineType = null, isRawHtml = false) {
-    const isUser = role === 'user';
-    const isError = role === 'error';
-    
-    const wrap = document.createElement('div');
-    wrap.className = `flex gap-3 animate-fade-up ${isUser ? 'flex-row-reverse' : ''}`;
-
-    const iconClasses = isUser ? 'bg-ink-700 text-white' : isError ? 'bg-rose-100 text-rose-600' : 'bg-clinical-600 text-white';
-    const iconSVG = isUser 
-      ? `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>`
-      : isError
-      ? `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>`
-      : `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>`;
-
-    const bubbleClasses = isUser 
-      ? 'bg-ink-700 text-white rounded-tr-sm border-transparent' 
-      : isError
-      ? 'bg-white text-rose-700 border-rose-200 rounded-tl-sm'
-      : 'bg-white text-ink-700 border-ink-100 rounded-tl-sm';
-
-    let tagHtml = '';
-    if (engineType === 'cache') tagHtml = `<span class="inline-block mb-2 text-[10px] font-bold text-sky-600 bg-sky-50 border border-sky-200 px-2 rounded-full uppercase">Restored from History</span>`;
-
-    const bodyHtml = isRawHtml ? content : renderContent(content);
-
-    wrap.innerHTML = `
-      <div class="flex-shrink-0 w-9 h-9 rounded-xl ${iconClasses} flex items-center justify-center shadow-sm">${iconSVG}</div>
-      <div class="max-w-[85%] rounded-3xl ${bubbleClasses} border px-5 py-3.5 text-sm shadow-sm prose-bubble">
-        ${tagHtml}${bodyHtml}
-      </div>
-    `;
-    
-    chatInner.appendChild(wrap);
-    document.getElementById('chat-messages').scrollTo({ top: chatInner.scrollHeight, behavior: 'smooth' });
-  }
-
-  async function sendMessage() {
-    const text = chatInput.value.trim();
-    if (!text || loading) return;
-
-    loading = true;
-    chatBtn.disabled = true;
-    chatInput.value = '';
-
-    chatHistory.push({ role: 'user', content: text });
-    appendBubble('user', text);
-
-    // Typing indicator
-    const typingId = 'typing-' + Date.now();
-    const typingWrap = document.createElement('div');
-    typingWrap.id = typingId;
-    typingWrap.className = 'flex gap-3 animate-fade-up';
-    typingWrap.innerHTML = `
-      <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-clinical-600 text-white flex items-center justify-center shadow-sm">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>
-      </div>
-      <div class="bg-white border border-ink-100 rounded-3xl rounded-tl-sm px-5 h-12 flex items-center gap-1.5 shadow-sm">
-        <span class="w-2 h-2 rounded-full bg-clinical-400 animate-dot-1"></span>
-        <span class="w-2 h-2 rounded-full bg-clinical-400 animate-dot-2"></span>
-        <span class="w-2 h-2 rounded-full bg-clinical-400 animate-dot-3"></span>
-      </div>`;
-    chatInner.appendChild(typingWrap);
-    document.getElementById('chat-messages').scrollTo({ top: chatInner.scrollHeight, behavior: 'smooth' });
-
-    try {
-      const res = await fetch('/api/chat/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history: chatHistory }),
-      });
-
-      const data = await res.json();
-      document.getElementById(typingId).remove();
-
-      if (!res.ok || data.error) {
-        // Build an intuitive error bubble with a switch link
-        let errHtml = `
-          <p class="font-bold mb-1 text-rose-800 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            AI Engine Unavailable
-          </p>
-          <p class="text-sm mb-4 opacity-90">${data.error || 'Server connection failed.'}</p>
-        `;
-        if (data.can_fallback) {
-            errHtml += `<button onclick="switchToForm()" class="bg-rose-50 border border-rose-300 text-rose-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-100 transition-colors shadow-sm w-full md:w-auto mt-2">Switch to Built-in Manual Form</button>`;
-        }
-        appendBubble('error', errHtml, null, true);
         
-        // Remove the failed user message from memory so they can retry later if needed
-        chatHistory.pop();
-      } else {
-        chatHistory.push({ role: 'assistant', content: data.text });
-        appendBubble('assistant', data.text, data.engine);
-      }
-    } catch (err) {
-      document.getElementById(typingId).remove();
-      appendBubble('error', `<p>Network Error. Cannot reach the server.</p>`, null, true);
-      chatHistory.pop();
-    } finally {
-      loading = false;
-      chatBtn.disabled = !chatInput.value.trim();
-      chatInput.focus();
-    }
-  }
+        <button onClick={onReset} className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-md transition">New Chat</button>
+      </div>
+    </header>
+  );
+}
 
-  /* ── Form Logic ───────────────────────────────────────────── */
-  async function submitForm() {
-    const btn = document.getElementById('btn-analyze');
-    const resultPanel = document.getElementById('form-results');
-    const resultBox = document.getElementById('form-result-content');
-    
-    // Gather data
-    const symptoms = Array.from(document.querySelectorAll('.symptom-cb:checked')).map(cb => cb.value);
-    const severity = document.getElementById('form-severity').value;
-    const duration = document.getElementById('form-duration').value.trim();
-    const history = document.getElementById('form-history').value.trim();
+function DisclaimerBanner() {
+  return (
+    <div className="bg-amber-50 border-l-4 border-amber-400 text-amber-800 text-xs px-3 py-2">
+      ⚠️ <strong>Not a substitute for professional medical advice.</strong> In emergencies, call 911.
+    </div>
+  );
+}
 
-    if (symptoms.length === 0 && !duration && !history) {
-        alert("Please select at least one symptom or provide some details.");
-        return;
-    }
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-2 text-slate-400 text-sm px-2">
+      <span className="dot w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+      <span className="dot w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+      <span className="dot w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+    </div>
+  );
+}
 
-    btn.disabled = true;
-    btn.innerHTML = `<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Processing...`;
-    
+function MessageBubble({ msg, engine }) {
+  const isUser = msg.role === "user";
+  const diagnosis = msg.diagnosis;
+  const isEmergency = diagnosis && diagnosis.severity === "emergency";
+  
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
+      <div className={`max-w-[85%] md:max-w-[70%] ${isUser ? "order-2" : ""}`}>
+        <div className={`flex items-end gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0
+            ${isUser ? "bg-cyan-600 text-white" : "bg-teal-100 text-teal-700"}`}>
+            {isUser ? "🧑" : "🤖"}
+          </div>
+          <div className={`rounded-2xl px-4 py-2.5 shadow-sm
+            ${isUser
+              ? "bg-cyan-600 text-white rounded-br-sm"
+              : isEmergency
+                ? "bg-red-50 border border-red-200 text-red-900 rounded-bl-sm"
+                : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
+            
+            {!isUser && engine === 'ai' && (
+              <span className="text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded mb-1 inline-block">AI ENGINE</span>
+            )}
+            {!isUser && engine === 'rule' && (
+              <span className="text-[9px] font-bold text-teal-500 bg-teal-50 px-1.5 py-0.5 rounded mb-1 inline-block">NLP ENGINE</span>
+            )}
+
+            <div dangerouslySetInnerHTML={renderMarkdown(msg.content)} />
+
+            {diagnosis && !isEmergency && (
+              <div className="mt-3 bg-teal-50/60 border border-teal-200 rounded-lg p-3 text-slate-800 text-sm">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-teal-800">{diagnosis.name}</span>
+                  <span className="text-xs font-bold text-teal-700">{diagnosis.confidence_pct}% match</span>
+                </div>
+                <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mb-2">
+                  <div className="h-full bg-teal-500" style={{width: `${Math.min(diagnosis.confidence_pct, 100)}%`}}></div>
+                </div>
+                <p className="text-xs text-slate-600 mt-1">{diagnosis.advice}</p>
+              </div>
+            )}
+
+            {msg.symptoms && msg.symptoms.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {msg.symptoms.map((s, i) => (
+                  <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full
+                    ${isUser ? "bg-cyan-700/40" : "bg-teal-50 text-teal-700 border border-teal-200"}`}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickReplies({ onPick, disabled }) {
+  const suggestions = ["I have a fever and headache", "I've been coughing with a sore throat", "My stomach hurts and I feel nauseous", "I'm having chest pain", "Burning when I urinate"];
+  return (
+    <div className="px-3 pb-2 flex gap-2 overflow-x-auto chat-scroll">
+      {suggestions.map((s, i) => (
+        <button key={i} disabled={disabled} onClick={() => onPick(s)}
+          className="text-xs whitespace-nowrap bg-white border border-slate-300 hover:border-teal-400 hover:bg-teal-50 text-slate-700 px-3 py-1.5 rounded-full transition disabled:opacity-50">
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------- Main App ------------------------- */
+function App() {
+  const [sessionId] = useState(getOrCreateSession);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showQuick, setShowQuick] = useState(true);
+  const [engine, setEngine] = useState("rule"); // 'rule' or 'ai'
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const welcome = {
+      role: "bot",
+      content: "Hello! I'm **MediBot**. Describe how you're feeling and I'll help identify possible conditions.\n\n*Currently using: " + (engine === 'rule' ? 'Rule-Based NLP Engine' : 'AI Engine (Gemini)') + "*",
+      timestamp: new Date().toISOString(),
+    };
+    setMessages([welcome]);
+
+    fetch(`/api/history/${sessionId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.messages && data.messages.length > 0) {
+          setMessages([welcome, ...data.messages]);
+          setShowQuick(false);
+        }
+      }).catch(() => {});
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, loading]);
+
+  const sendMessage = useCallback(async (text) => {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+
+    const userMsg = { role: "user", content: trimmed, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setLoading(true);
+    setShowQuick(false);
+
     try {
-      const res = await fetch('/api/chat/builtin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms, severity, duration, history })
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, message: trimmed, engine: engine }),
       });
-
+      if (!res.ok) throw new Error("Request failed");
       const data = await res.json();
-      
-      resultBox.innerHTML = renderContent(data.text);
-      resultPanel.classList.remove('hidden');
-      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    } catch (err) {
-      alert("Failed to connect to the built-in engine. Please check your network.");
+      const botMsg = {
+        role: "bot",
+        content: data.response.text,
+        symptoms: data.response.symptoms,
+        diagnosis: data.response.diagnosis,
+        severity: data.response.severity,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (e) {
+      setMessages(prev => [...prev, {
+        role: "bot", content: "⚠️ Sorry, I couldn't reach the server.", timestamp: new Date().toISOString()
+      }]);
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = `<span>Generate Assessment Report</span>`;
+      setLoading(false);
+      inputRef.current && inputRef.current.focus();
     }
-  }
+  }, [loading, sessionId, engine]);
+
+  const handleReset = useCallback(async () => {
+    if (!confirm("Start a new conversation? This will clear the current chat history.")) return;
+    try { await fetch("/api/reset", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ session_id: sessionId }) }); } catch (e) {}
+    const newSid = "web-" + crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, newSid);
+    window.location.reload();
+  }, [sessionId]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage(input);
+  };
+
+  return (
+    <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white shadow-xl">
+      <Header onReset={handleReset} engine={engine} setEngine={setEngine} />
+      <DisclaimerBanner />
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll p-4 bg-slate-50">
+        {messages.map((m, i) => (
+          <MessageBubble key={i} msg={m} engine={engine} />
+        ))}
+        {loading && (
+          <div className="flex items-end gap-2 mb-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm bg-teal-100 text-teal-700">🤖</div>
+            <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3">
+              <TypingIndicator />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showQuick && messages.length <= 1 && (
+        <QuickReplies onPick={(s) => sendMessage(s)} disabled={loading} />
+      )}
+
+      <form onSubmit={handleSubmit} className="border-t border-slate-200 p-3 bg-white flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={`Describe symptoms (${engine === 'ai' ? 'AI Engine' : 'NLP Engine'})...`}
+          disabled={loading}
+          className="flex-1 px-4 py-2.5 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+        />
+        <button type="submit" disabled={loading || !input.trim()}
+          className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white rounded-full px-5 py-2.5 transition text-sm font-medium flex items-center gap-1">
+          Send <span className="text-base">→</span>
+        </button>
+      </form>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
